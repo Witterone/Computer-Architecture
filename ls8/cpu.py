@@ -7,35 +7,82 @@ class CPU:
 
     def __init__(self):
         """Construct a new CPU."""
-        self.ram = [0]*256
+        self.memory = [0]*256
         self.pc = 0
         self.flag = 0b00000000
-        self.mdr = None
-        self.reg = []
+        self.IR = {}
+        self.reg = [0] * 8
+        self.stopped = False
+
+
+        HLT = 0b00000001
+        LDI = 0b10000010
+        MUL = 0b10100010
+        PRN = 0b01000111
+        
+        self.IR = {
+            HLT:self.HLT(),
+            LDI:self.LDI(),
+            MUL:self.MULT(),
+            PRN:self.PRN()
+            }
+
+    
+
+    def LDI(self):
+        self.reg[self.memory[self.pc+1]] = self.memory[self.pc+2]
+                
+    def MULT(self):
+        self.alu("MULTI",self.reg[self.pc+1],self.reg[self.pc+2])
+    
+    def PRN(self):
+        print(self.reg[self.pc+1])
 
     def load(self,program = None):
         """Load a program into memory."""
-
+        if len(sys.argv) != 2:
+            print("usage: comp.py progname")
+            sys.exit(1)
         address = 0
-
-        # For now, we've just hardcoded a program:
         if program is None:
-            program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-            ]
+            program = sys.argv[1]
+        
 
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+        # # For now, we've just hardcoded a program:
+        # if program is None:
+        #     program = [
+        #     # From print8.ls8
+        #     0b10000010, # LDI R0,8
+        #     0b00000000,
+        #     0b00001000,
+        #     0b01000111, # PRN R0
+        #     0b00000000,
+        #     0b00000001, # HLT
+        #     ]
 
-    def ram_read(self,addrs):
-        return self.ram[addrs]
+        try:
+            with open(program) as f:
+                for line in f:
+                    line = line.strip()
+                    if line == "" or  line[0] =="#": 
+                       continue 
+                    try:
+                        str_value = line.split("#")[0]
+                        value = int(str_value, 10)
+                        
+                    except ValueError:
+                        print(f"Invalid number: {str_value}")
+                        sys.exit(1)
+                        
+                    self.memory[address] = value
+                    address += 1
+                    
+        except FileNotFoundError:
+            print(f"File not found: {sys.argv[1]}")
+            sys.exit(2)
+            
+    def ram_read(self,MAR):
+        return self.reg[MAR]
     
     def FLG(self,v_a,v_b):
         if v_a < v_b:
@@ -44,12 +91,14 @@ class CPU:
         elif v_a > v_b:
             self.flag = 0b00000010
             
-        else:
+        elif v_a == v_b:
             self.flag = 0b00000001
-        
+        else:
+            self.flag = 0b00000000
+       
     
-    def ram_write(self,point,update):
-        self.ram[point] = update
+    def ram_write(self,MAR,MDR):
+        self.reg[MAR] = MDR
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -57,6 +106,8 @@ class CPU:
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
         #elif op == "SUB": etc
+        elif op == "MULTI":
+            self.reg[reg_a] *= self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -81,39 +132,57 @@ class CPU:
         print()
     
     def HLT(self):
+        
         sys.exit()
     
+    def oprt_2(self,op_num):
+        if op_num == 0b10000010:
+            pass
+    def PC_move(self,op):
+        move = op & 11000000
+        move_num = (move >> 6)+1
+        return move_num
     
     def run(self):
         """Run the CPU."""
-        MAR = None
-        stopped = False
-        operation = self.ram
-        IR = self.pc
-        while stopped == False:
-            op = operation[IR]
+        
+        
+        
+        operation = self.memory
+        PC = self.pc
+        while self.stopped == False:
+            op = operation[PC]
             if op == 0b10000010:
                 
-                IR += 2
+                self.reg[operation[PC+1]] = operation[PC+2]
+                
+                PC += self.PC_move(op)
                 
             elif op == 0b00000000:
                
-                IR += 1
+                PC += self.PC_move(op)
                 
             elif op == 0b00001000:
-                IR += 1
+                PC += self.PC_move(op)
+                
+            elif op == 0b10100010:
+                self.alu("MULTI",self.reg[PC+1],self.reg[PC+2])
+                
+                PC += self.PC_move(op)
                 
             elif op == 0b01000111:
-                MAR = operation[IR-1]
-                print(MAR)
-                IR += 1
+                 
+                print(self.reg[PC+1])
+                PC += self.PC_move(op)
                 
             elif op == 0b00000001:
-                stopped = True
-                IR += 1
+                self.stopped = True
+                self.HLT()
+                PC += self.PC_move(op)
+                
                 
             else:
-                stopped = True
+                self.stopped = True
                 print("operation incorrect")
                 self.HLT()
                 
