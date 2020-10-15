@@ -36,10 +36,10 @@ class CPU:
             }
 
     def CALL(self):
-        self.pc += 1 
-        self.push()
         self.pc -= 1
+        self.memory[self.SP] = self.pc+2
         self.pc = self.reg[self.memory[self.pc+1]]
+        
         
     def RET(self):
         self.pc = self.memory[self.SP]
@@ -227,13 +227,13 @@ class CPU:
                 self.reg[reg_loc] = value
                 PC += self.PC_move(op)
                 
-            elif op == 0b01010000:
+            elif op == 0b01010000:  #call
                 self.SP -= 1
-                self.reg[self.SP] = self.memory[PC+2]
+                self.memory[self.SP] = PC+2
                 PC = self.reg[self.memory[PC+1]]
                 
-            elif op == 0b00010001:
-                PC = self.reg[self.SP]
+            elif op == 0b00010001: # return
+                PC = self.memory[self.SP]
                 self.SP += 1
                 
             else:
