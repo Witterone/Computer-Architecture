@@ -13,21 +13,38 @@ class CPU:
         self.IR = {}
         self.reg = [0] * 8
         self.stopped = False
-
+        self.SP = 0xf4
 
         HLT = 0b00000001
         LDI = 0b10000010
         MUL = 0b10100010
         PRN = 0b01000111
+        POP = 0b01000110
+        PUSH = 0b01000101
+        RET = 0b00010001
+        CALL = 0b01010000
         
         self.IR = {
-            HLT:self.HLT(),
-            LDI:self.LDI(),
-            MUL:self.MULT(),
-            PRN:self.PRN()
+            HLT:self.HLT,
+            LDI:self.LDI,
+            MUL:self.MULT,
+            PRN:self.PRN,
+            POP:self.POP,
+            PUSH:self.PUSH,
+            RET:self.RET,
+            CALL:self.CALL
             }
 
-    
+    def CALL(self):
+        self.pc += 1 
+        self.push()
+        self.pc -= 1
+        self.pc = self.reg[self.memory[self.pc+1]]
+        
+    def RET(self):
+        self.pc = self.memory[self.SP]
+        self.SP += 1
+        
 
     def LDI(self):
         self.reg[self.memory[self.pc+1]] = self.memory[self.pc+2]
@@ -37,6 +54,21 @@ class CPU:
     
     def PRN(self):
         print(self.reg[self.pc+1])
+    
+    def PUSH(self):
+        self.SP -= 1
+        reg_loc = self.memory[self.pc+1]
+        self.memory[self.SP] = self.reg[reg_loc]
+        self.reg[7] = self.SP
+        
+        
+    def POP(self):
+        value = self.memory[self.reg[7]]
+        reg_loc = self.memory[self.pc+1]
+        self.SP += 1
+        self.reg[7]=self.SP
+        self.reg[reg_loc] = value
+        
 
     def load(self,program = None):
         """Load a program into memory."""
@@ -45,7 +77,7 @@ class CPU:
             sys.exit(1)
         address = 0
         if program is None:
-            program = sys.argv[1]
+            program = f"examples/{sys.argv[1]}"
         
 
         # # For now, we've just hardcoded a program:
@@ -68,7 +100,7 @@ class CPU:
                        continue 
                     try:
                         str_value = line.split("#")[0]
-                        value = int(str_value, 10)
+                        value = int(str_value,2)
                         
                     except ValueError:
                         print(f"Invalid number: {str_value}")
@@ -166,13 +198,13 @@ class CPU:
                 PC += self.PC_move(op)
                 
             elif op == 0b10100010:
-                self.alu("MULTI",self.reg[PC+1],self.reg[PC+2])
+                self.alu("MULTI",self.memory[PC+1],self.memory[PC+2])
                 
                 PC += self.PC_move(op)
                 
             elif op == 0b01000111:
                  
-                print(self.reg[PC+1])
+                print(self.reg[operation[PC+1]])
                 PC += self.PC_move(op)
                 
             elif op == 0b00000001:
@@ -180,12 +212,39 @@ class CPU:
                 self.HLT()
                 PC += self.PC_move(op)
                 
+            elif op == 0b01000101:    
+                self.SP -= 1
+                reg_loc = self.memory[PC+1]
+                self.memory[self.SP] = self.reg[reg_loc]
+                self.reg[7] = self.SP
+                PC += self.PC_move(op)
+                
+            elif op == 0b01000110:
+                value = self.memory[self.reg[7]]
+                reg_loc = self.memory[PC+1]
+                self.SP += 1
+                self.reg[7]=self.SP
+                self.reg[reg_loc] = value
+                PC += self.PC_move(op)
+                
+            elif op == 0b01010000:
+                self.SP -= 1
+                self.reg[self.SP] = self.memory[PC+2]
+                PC = self.reg[self.memory[PC+1]]
+                
+            elif op == 0b00010001:
+                PC = self.reg[self.SP]
+                self.SP += 1
                 
             else:
                 self.stopped = True
                 print("operation incorrect")
                 self.HLT()
                 
-        
+    def run2(self):
+        while self.pc is not None:
+            self.IR[self.memory[self.pc]]()
+            if (self.memory[self.pc] & 0b00010000) != 0b00010000:
+                self.pc += self.PC_move(self.memory[self.pc])
         
             
