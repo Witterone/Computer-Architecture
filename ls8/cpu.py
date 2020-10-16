@@ -41,6 +41,7 @@ class CPU:
         self.pc = self.reg[self.memory[self.pc+1]]
     
     def ADDI(self):
+        # adds immediate instruction given at PC+2 to registry address at PC+1
         self.reg[self.memory[self.pc+1]] = self.memory[self.pc+2]
         
     def RET(self):
