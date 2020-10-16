@@ -13,7 +13,7 @@ class CPU:
         self.IR = {}
         self.reg = [0] * 8
         self.stopped = False
-        self.SP = 0xf4
+        self.SP = 244
 
         HLT = 0b00000001
         LDI = 0b10000010
@@ -97,7 +97,8 @@ class CPU:
                 for line in f:
                     line = line.strip()
                     if line == "" or  line[0] =="#": 
-                       continue 
+                        
+                        continue 
                     try:
                         str_value = line.split("#")[0]
                         value = int(str_value,2)
@@ -117,13 +118,13 @@ class CPU:
         return self.reg[MAR]
     
     def FLG(self,v_a,v_b):
-        if v_a < v_b:
+        if self.reg[v_a] < self.reg[v_b]: #less than
             self.flag = 0b00000100
             
-        elif v_a > v_b:
+        elif self.reg[v_a] > self.reg[v_b]: #greater than
             self.flag = 0b00000010
             
-        elif v_a == v_b:
+        elif self.reg[v_a] == self.reg[v_b]: #equal to 
             self.flag = 0b00000001
         else:
             self.flag = 0b00000000
@@ -137,9 +138,16 @@ class CPU:
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+            
+        elif op == "SUB":
+            self.reg[reg_a] -= self.reg[reg_b]
+            
         elif op == "MULTI":
             self.reg[reg_a] *= self.reg[reg_b]
+        
+        elif op == "DIV":
+            self.reg[reg_a] /= self.reg[reg_b]
+            
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -178,11 +186,10 @@ class CPU:
     def run(self):
         """Run the CPU."""
         
-        
-        
         operation = self.memory
         PC = self.pc
         while self.stopped == False:
+            
             op = operation[PC]
             if op == 0b10000010:
                 
@@ -190,8 +197,8 @@ class CPU:
                 
                 PC += self.PC_move(op)
                 
-            elif op == 0b00000000:
-               
+            elif op == 0b10100000:
+                self.alu("ADD", self.memory[PC+1], self.memory[PC+2])
                 PC += self.PC_move(op)
                 
             elif op == 0b00001000:
@@ -199,7 +206,6 @@ class CPU:
                 
             elif op == 0b10100010:
                 self.alu("MULTI",self.memory[PC+1],self.memory[PC+2])
-                
                 PC += self.PC_move(op)
                 
             elif op == 0b01000111:
@@ -212,14 +218,14 @@ class CPU:
                 self.HLT()
                 PC += self.PC_move(op)
                 
-            elif op == 0b01000101:    
+            elif op == 0b01000101:    #push
                 self.SP -= 1
                 reg_loc = self.memory[PC+1]
                 self.memory[self.SP] = self.reg[reg_loc]
                 self.reg[7] = self.SP
                 PC += self.PC_move(op)
                 
-            elif op == 0b01000110:
+            elif op == 0b01000110: #pop
                 value = self.memory[self.reg[7]]
                 reg_loc = self.memory[PC+1]
                 self.SP += 1
@@ -235,7 +241,38 @@ class CPU:
             elif op == 0b00010001: # return
                 PC = self.memory[self.SP]
                 self.SP += 1
+            
+            elif op == 0b10100111: #cmp    
+                self.FLG(self.memory[PC+1],self.memory[PC+2])
+                PC += self.PC_move(op)
+            
+            elif op == 0b01100110: #dec
+                self.reg[PC+1] -= 1
+                PC += self.PC_move(op)
+            
+            elif op == 0b10100011: #div
+                self.alu("DIV",self.memory[PC+1],self.memory[PC+2])
+                PC += self.PC_move(op)
+            
+            elif op == 0b01100101: #incr
+                self.reg[self.memory[PC+1]] += 1
+                PC += self.PC_move(op)
                 
+            elif op == 0b01010101: #jeq
+                if self.flag == 0b00000001:
+                    PC = self.reg[self.memory[PC+1]]
+                else:
+                    PC += self.PC_move(op)
+                    
+            elif op == 0b01010110: #jne
+                if self.flag != 0b00000001:
+                    PC = self.reg[self.memory[PC+1]]
+                else:
+                    PC += self.PC_move(op)
+                    
+            elif op == 0b01010100: #jmp
+                PC = self.reg[self.memory[PC+1]]
+            
             else:
                 self.stopped = True
                 print("operation incorrect")
