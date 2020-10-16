@@ -36,10 +36,12 @@ class CPU:
             }
 
     def CALL(self):
-        self.pc -= 1
+        self.SP -= 1
         self.memory[self.SP] = self.pc+2
         self.pc = self.reg[self.memory[self.pc+1]]
-        
+    
+    def ADDI(self):
+        self.reg[self.memory[self.pc+1]] = self.memory[self.pc+2]
         
     def RET(self):
         self.pc = self.memory[self.SP]
